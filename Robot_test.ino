@@ -23,9 +23,9 @@ int motor2_output = 0;
 
 
 int input_buffer = 20;
-int steerMin = 1250;
+int steerMin = 1350;
 int steerMax = 2600;
-int throttleMin = 1200;
+int throttleMin = 1300;
 int throttleMax = 2600;
 
 
@@ -74,50 +74,52 @@ void setDirection(int motor1_direction, int motor2_direction) {
 
 void loop() {
   getInputs();
-//  Serial.print("steerIn: ");
-//  Serial.println(steerIn);
-  Serial.print("throttleRaw: ");
-  Serial.println(throttleRaw); 
+ // Serial.print("steerIn: ");
+ // Serial.println(steerIn);
+  // Serial.print("throttleIn: ");
+  // Serial.println(throttleIn); 
 
 
 
-/*
+
   if(throttleIn>=input_buffer) {
     Serial.println("Forwards!");
     setDirection(FORWARD, FORWARD);
     motor1_output = throttleIn;
     motor2_output = throttleIn;
+
+    if(steerIn >= input_buffer) {
+      motor1_output = motor1_output - steerIn;
+    } else if(steerIn <= -input_buffer) {
+      motor2_output = motor2_output + steerIn;
+    }
+        
+
   } else if(throttleIn<= -input_buffer) {
     Serial.println("Backwards!");
     setDirection(BACKWARD, BACKWARD);
     motor1_output = abs(throttleIn);
     motor2_output = abs(throttleIn);
   } else {
-    Serial.println("Stop!");
-
-//    if(steerIn >= input_buffer) {
-//      setDirection(FORWARD, BACKWARD);
-//      motor2_output = motor2_output - throttleIn; 
-//    } else if(steerIn <= -10) {
-//      setDirection(FORWARD, BACKWARD);
-//      motor1_output = motor1_output - throttleIn;
-//    } else {
-//      motor1_output = motor2_output = 0;
-//    }
+    // Serial.println("Stationary!");
     motor1_output = motor2_output = 0;
+
+    if(steerIn >= input_buffer) {
+      // Turn right
+      Serial.println("Turn right!!");
+    } else if(steerIn <= -input_buffer) {
+      Serial.println("Turn left!");
+    }
+
   }
 
     
-  if(steerIn >= input_buffer) {
-    motor2_output = motor2_output - throttleIn; 
-  } else if(steerIn <= -10) {
-    motor1_output = motor1_output - throttleIn;
-  }
+ 
 
   analogWrite(motor1_enable, motor1_output);
   analogWrite(motor2_enable, motor2_output);
   
   // motor1_output = motor2_output = 0;
-*/
-  delay(500);
+
+//  delay(500);
 }
