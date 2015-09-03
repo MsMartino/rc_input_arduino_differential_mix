@@ -5,13 +5,10 @@
 #define BACKWARD 0
 
 #define motor1_enable 5
-
 #define motor1_pin1 2
 #define motor1_pin2 3
 
-
 #define motor2_enable 6
-
 #define motor2_pin1 10
 #define motor2_pin2 11
 
@@ -26,9 +23,24 @@ int motor2_output = 0;
 
 
 int input_buffer = 20;
+int steerMin = 1250;
+int steerMax = 2600;
+int throttleMin = 1200;
+int throttleMax = 2600;
+
 
 void setup()
 {
+  pinMode(steeringInput, INPUT);
+  pinMode(throttleInput, INPUT);
+
+  pinMode(motor1_enable, OUTPUT);
+  pinMode(motor1_pin1, OUTPUT);
+  pinMode(motor1_pin2, OUTPUT);
+  pinMode(motor2_pin1, OUTPUT);
+  pinMode(motor2_pin2, OUTPUT);
+  pinMode(motor2_enable, OUTPUT);
+
 
   Serial.begin(9600);
 }
@@ -36,8 +48,8 @@ void getInputs() {
   steerRaw = pulseIn(steeringInput, HIGH);
   throttleRaw = pulseIn(throttleInput, HIGH);
 
-  steerIn = constrain(map(steerRaw, 1100, 1900, -255, 255), -255, 255);
-  throttleIn = constrain(map(throttleRaw, 1100, 1900, -255, 255), -255, 255);
+  steerIn = constrain(map(steerRaw, steerMin, steerMax, -255, 255), -255, 255);
+  throttleIn = constrain(map(throttleRaw, throttleMin, throttleMax, -255, 255), -255, 255);
 }
 
 void setDirection(int motor1_direction, int motor2_direction) {
@@ -64,10 +76,12 @@ void loop() {
   getInputs();
 //  Serial.print("steerIn: ");
 //  Serial.println(steerIn);
-  Serial.print("throttleIn: ");
-  Serial.println(throttleIn); 
+  Serial.print("throttleRaw: ");
+  Serial.println(throttleRaw); 
 
 
+
+/*
   if(throttleIn>=input_buffer) {
     Serial.println("Forwards!");
     setDirection(FORWARD, FORWARD);
@@ -100,10 +114,10 @@ void loop() {
     motor1_output = motor1_output - throttleIn;
   }
 
-
-  
   analogWrite(motor1_enable, motor1_output);
   analogWrite(motor2_enable, motor2_output);
   
-  //delay(500);
+  // motor1_output = motor2_output = 0;
+*/
+  delay(500);
 }
