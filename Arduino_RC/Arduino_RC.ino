@@ -1,4 +1,4 @@
-z// This code takes RC input from a standard PPM based RC receiver using separate steering and throttle channels
+// This code takes RC input from a standard PPM based RC receiver using separate steering and throttle channels
 // and mixes them for differential drive via a dual-motor h-bridge based on the L298N
 // Like this one http://www.amazon.com/DROK-Controller-H-Bridge-Mega2560-Duemilanove/dp/B00CAG6GX2/
 
@@ -68,7 +68,7 @@ void setup()
 
   for(int i=0;i<50;i++) {
     throttleAvg += pulseIn(throttleInput, HIGH, 25000);
-    steerAvg += pulseIn(steerInput, HIGH, 25000);
+    steerAvg += pulseIn(steeringInput, HIGH, 25000);
     delay(1);
   }
   throttleAvg = (throttleAvg/50);
@@ -78,7 +78,7 @@ void setup()
   steerMin = steerAvg - setBuffer;
   steerMax = steerAvg + setBuffer;
   throttleMin = throttleAvg - setBuffer;
-  throtleMax = throttleAvg + setBuffer;
+  throttleMax = throttleAvg + setBuffer;
 
   digitalWrite(LED_PIN, LOW);
   delay(200);
@@ -89,7 +89,7 @@ void setup()
     digitalWrite(LED_PIN, LOW);
     delay(100);
   }
-  
+
 } // end setup
 
 
