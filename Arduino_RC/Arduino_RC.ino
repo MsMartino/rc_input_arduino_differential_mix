@@ -22,7 +22,8 @@
 // Set this to 'true' in order to enable Serial debugging.
 // This will also introduce a 500ms delay between loops so as not to flood the console.
 bool debug = false;
-
+// disable outputting to motors (for Serial only debugging)
+bool motorsOff = false;
 
 // working variable declarations
 unsigned long steerRaw;
@@ -44,6 +45,8 @@ int setBuffer = 600;
 
 void setup()
 {
+  bool error = false;
+
   pinMode(steeringInput, INPUT);
   pinMode(throttleInput, INPUT);
 
@@ -58,28 +61,80 @@ void setup()
 
   if(debug) {
     Serial.begin(9600);
+    Serial.println("Arduino_RC");
   }
 
   // Let's read in the average values and calculate a good center point.
-  int throttleAvg = 0;
-  int steerAvg = 0;
+  unsigned int throttleAvg = 0;
+  unsigned int steerAvg = 0;
 
   digitalWrite(LED_PIN, HIGH); // turn on the status LED while we're calibrating.
 
-  for(int i=0;i<50;i++) {
+  for(int i=0;i<20;i++) {
+    if(debug) {
+      Serial.print("ThrottleAvg: ");
+      Serial.println(throttleAvg);
+    }
     throttleAvg += pulseIn(throttleInput, HIGH, 25000);
     steerAvg += pulseIn(steeringInput, HIGH, 25000);
     delay(1);
   }
-  throttleAvg = (throttleAvg/50);
-  steerAvg = (steerAvg/50);
+
+  if(debug) {
+    Serial.print("throttleAvg (total): ");
+    Serial.println(throttleAvg);
+    Serial.print("steerAvg (total): ");
+    Serial.println(steerAvg);
+
+  }
+
+  throttleAvg = (throttleAvg/20);
+  steerAvg = (steerAvg/20);
 
   // now that we have our averages, let's set the min/max values
-  steerMin = steerAvg - setBuffer;
-  steerMax = steerAvg + setBuffer;
-  throttleMin = throttleAvg - setBuffer;
-  throttleMax = throttleAvg + setBuffer;
 
+  if((steerAvg > 600) && (steerAvg < 2000)) {
+    steerMin = steerAvg - setBuffer;
+    steerMax = steerAvg + setBuffer;
+  } else {
+    error = true;
+  }
+  if((throttleAvg > 600) && (throttleAvg < 2000)) {
+    throttleMin = throttleAvg - setBuffer;
+    throttleMax = throttleAvg + setBuffer;
+  } else {
+    error = true;
+  }
+  if(error) {
+    if(debug) {
+      Serial.print("steerAvg: ");
+      Serial.println(steerAvg);
+      Serial.print("throttleAvg: ");
+      Serial.println(throttleAvg);
+    }
+
+    while(true) {
+      digitalWrite(LED_PIN, LOW);
+      delay(50);
+      digitalWrite(LED_PIN, HIGH);
+      delay(50);
+    }
+  } else {
+    if(debug) {
+      Serial.print("Throttle: ");
+      Serial.print(throttleMin);
+      Serial.print(", ");
+      Serial.println(throttleMax);
+
+      Serial.print("Steering: ");
+      Serial.print(steerMin);
+      Serial.print(", ");
+      Serial.println(throttleMax);
+    }
+  }
+
+
+  // turn off the LED
   digitalWrite(LED_PIN, LOW);
   delay(200);
 
@@ -223,9 +278,10 @@ void loop() {
   }
 
   // PWM the enable pin to control the motor speed.
-  analogWrite(motor1_enable, motor1_output);
-  analogWrite(motor2_enable, motor2_output);
-  
+  if(!motorsOff) {
+    analogWrite(motor1_enable, motor1_output);
+    analogWrite(motor2_enable, motor2_output);
+  }
   if(debug) {
     delay(500);
   }
