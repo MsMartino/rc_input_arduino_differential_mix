@@ -34,7 +34,8 @@ int steerIn = 0;
 
 int motor1_output = 0;
 int motor2_output = 0;
-
+int motor1_dir = 0;
+int motor2_dir = 0;
 
 int input_buffer = 20;
 int steerMin = 1350;
@@ -151,9 +152,15 @@ void setup()
 void getInputs() {
   steerRaw = pulseIn(steeringInput, HIGH);
   throttleRaw = pulseIn(throttleInput, HIGH);
-
-  steerIn = constrain(map(steerRaw, steerMin, steerMax, -255, 255), -255, 255);
-  throttleIn = constrain(map(throttleRaw, throttleMin, throttleMax, -255, 255), -255, 255);
+  
+  if(steerRaw == 0 || throttleRaw == 0) {
+    steerIn = 0;
+    throttleIn = 0;
+  }
+  else {
+    steerIn = constrain(map(steerRaw, steerMin, steerMax, -255, 255), -255, 255);
+    throttleIn = constrain(map(throttleRaw, throttleMin, throttleMax, -255, 255), -255, 255);
+  }
 } // end getInputs
 
 void setDirection(int motor1_direction, int motor2_direction) {
@@ -179,108 +186,83 @@ void setDirection(int motor1_direction, int motor2_direction) {
 void loop() {
   getInputs();
 
-  if(throttleIn>=input_buffer) {
-    // Throttle is positive, so let's move forwards!
-    setDirection(FORWARD, FORWARD);
+  // Bias to going forward direction, this way spin-in-place works like you expect
+  if(throttleIn >= -input_buffer) {
     motor1_output = throttleIn;
     motor2_output = throttleIn;
-
-    if(steerIn >= input_buffer) {
-      // Steering is positive, so turn right
-      if(debug) {
-        Serial.println("Fwd + Right");
-      }
-      motor1_output -= steerIn;
-    } else if(steerIn <= -input_buffer) {
-      // steerign is negative, so turn left
-      if(debug) {
-        Serial.println("Fwd + Left");
-      }
-      motor2_output += steerIn;
-    } else {
-      // this is our default state
-      if(debug) {
-        Serial.println("Forwards!");
-      }
-    }
-
-  } else if(throttleIn <= -input_buffer) {
-    // throttle input is negative, so let's go backwards.
-    setDirection(BACKWARD, BACKWARD);
-    // here we need to use the absolute value since direction is controlled in setDirection, and we can't PWM a negative
-    motor1_output = abs(throttleIn);
-    motor2_output = abs(throttleIn);
-
-    if(steerIn >= input_buffer) {
-      // steer backwards and to the right.
-      if(debug) {
-        Serial.println("Bk + Right");
-      }
-      motor2_output -= steerIn;
-
-    } else if(steerIn <= -input_buffer) {
-      // steer backwards and to the left.
-      if(debug) {
-        Serial.println("Bk + Left");
-      }
-      motor1_output += steerIn;
-
-    } else {
-      // otherwise just go straight
-      if(debug) {
-      Serial.println("Backwards!");
-      }
-    }
+    
+    motor1_output -= steerIn;
+    motor2_output += steerIn;
 
     if(debug) {
+      if(steerIn >= input_buffer) {
+        // Steering is positive, so turn right
+        Serial.println("Fwd + Right");
+      } else if(steerIn <= -input_buffer) {
+        // steerign is negative, so turn left
+        Serial.println("Fwd + Left");
+      } else {
+        // this is our default state
+        if(throttleIn == 0) {
+          Serial.println("Stationary!");
+        }
+        else {
+          Serial.println("Forwards!");
+        }
+      }
+      
       Serial.print("motor1_output: ");
       Serial.println(motor1_output);
     }
 
   } else {
-    // throttle input is within our deadzone
+    // We allow negative values because we'll set direction and use abs to fix it before PWM'ing later.
+    motor1_output = throttleIn;
+    motor2_output = throttleIn;
+    
+    motor1_output += steerIn;
+    motor2_output -= steerIn;
+
     if(debug) {
-      Serial.println("Stationary!");
-    }
-    // let's make sure the motors don't move yet.
-    motor1_output = motor2_output = 0;
-
-    if(steerIn >= input_buffer) {
-      // Turn right
-      if(debug) {
-        Serial.println("Turn right!!");
+      if(steerIn >= input_buffer) {
+        // steer backwards and to the right.
+        Serial.println("Bk + Right");
+      } else if(steerIn <= -input_buffer) {
+        // steer backwards and to the left.
+        Serial.println("Bk + Left");
+      } else {
+        // otherwise just go straight back
+        Serial.println("Backwards!");
       }
-      setDirection(BACKWARD, FORWARD);
-
-      // since direction of the motors is controlled elsewhere, we can set the speed of both to the same value to turn symmetrically.
-      motor1_output = motor2_output = steerIn;
-
-    } else if(steerIn <= -input_buffer) {
-      // Turn left
-      if(debug) {
-        Serial.println("Turn left!");
-      }
-      setDirection(FORWARD, BACKWARD);
-      motor1_output = motor2_output = abs(steerIn);
-
+      
+      Serial.print("motor1_output: ");
+      Serial.println(motor1_output);
     }
 
   }
 
 
-  // Don't try outputing negative pwm values.
-  // we shouldn't get negative values at this point, but just in case...
+  // Use the output values to determine direction.
   if(motor1_output < 0) {
-    motor1_output = 0;
+    motor1_dir = BACKWARD;
   }
+  else {
+    motor1_dir = FORWARD;
+  }
+  
   if(motor2_output < 0) {
-    motor2_output = 0;
+    motor2_dir = BACKWARD;
+  }
+  else {
+    motor2_dir = FORWARD;
   }
 
-  // PWM the enable pin to control the motor speed.
+  setDirection(motor1_dir, motor2_dir);
+
+  // PWM the enable pin to control the motor speed, being sure to only give a value from 0-255
   if(!motorsOff) {
-    analogWrite(motor1_enable, motor1_output);
-    analogWrite(motor2_enable, motor2_output);
+    analogWrite(motor1_enable, abs(constrain(motor1_output, -255, 255)));
+    analogWrite(motor2_enable, abs(constrain(motor2_output, -255, 255)));
   }
   if(debug) {
     delay(500);
