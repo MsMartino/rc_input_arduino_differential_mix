@@ -20,10 +20,12 @@
 #define LED_PIN 13
 
 // Set this to 'true' in order to enable Serial debugging.
-// This will also introduce a 500ms delay between loops so as not to flood the console.
-bool debug = false;
+bool debug = true;
 // disable outputting to motors (for Serial only debugging)
 bool motorsOff = false;
+// This will also introduce a 500ms delay between loops so as not to flood the console.
+bool delayDebug = false;
+
 
 // working variable declarations
 unsigned long steerRaw;
@@ -59,8 +61,6 @@ void setup()
   pinMode(motor2_enable, OUTPUT);
 
   pinMode(LED_PIN, OUTPUT); // built in status LED
-  delay(2500);
-
 
   if(debug) {
     Serial.begin(9600);
@@ -73,6 +73,8 @@ void setup()
 
   digitalWrite(LED_PIN, HIGH); // turn on the status LED while we're calibrating.
 
+  delay(2500);
+
   for(int i=0;i<20;i++) {
     if(debug) {
       Serial.print("ThrottleAvg: ");
@@ -80,7 +82,7 @@ void setup()
     }
     throttleAvg += pulseIn(throttleInput, HIGH, 25000);
     steerAvg += pulseIn(steeringInput, HIGH, 25000);
-    delay(1);
+    delay(2);
   }
 
   if(debug) {
@@ -116,6 +118,7 @@ void setup()
       Serial.println(throttleAvg);
     }
 
+    // trap the code and blink furiously
     while(true) {
       digitalWrite(LED_PIN, LOW);
       delay(50);
@@ -139,13 +142,15 @@ void setup()
 
   // turn off the LED
   digitalWrite(LED_PIN, LOW);
-  delay(400);
+  delay(500);
 
+
+  // do a happy dance
   for(int i=0;i<5;i++) {
     digitalWrite(LED_PIN, HIGH);
     delay(500);
     digitalWrite(LED_PIN, LOW);
-    delay(500);
+    delay(100);
   }
 
 } // end setup
@@ -266,7 +271,7 @@ void loop() {
     analogWrite(motor1_enable, abs(constrain(motor1_output, -255, 255)));
     analogWrite(motor2_enable, abs(constrain(motor2_output, -255, 255)));
   }
-  if(debug) {
+  if(delayDebug) {
     delay(500);
   }
 }
