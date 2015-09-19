@@ -59,6 +59,8 @@ void setup()
   pinMode(motor2_enable, OUTPUT);
 
   pinMode(LED_PIN, OUTPUT); // built in status LED
+  delay(2500);
+
 
   if(debug) {
     Serial.begin(9600);
@@ -137,13 +139,13 @@ void setup()
 
   // turn off the LED
   digitalWrite(LED_PIN, LOW);
-  delay(200);
+  delay(400);
 
   for(int i=0;i<5;i++) {
     digitalWrite(LED_PIN, HIGH);
-    delay(100);
+    delay(500);
     digitalWrite(LED_PIN, LOW);
-    delay(100);
+    delay(500);
   }
 
 } // end setup
