@@ -1,3 +1,5 @@
+#include <Servo.h>
+
 // This code takes RC input from a standard PPM based RC receiver using separate steering and throttle channels
 // and mixes them for differential drive via a dual-motor h-bridge based on the L298N
 // Like this one http://www.amazon.com/DROK-Controller-H-Bridge-Mega2560-Duemilanove/dp/B00CAG6GX2/
@@ -5,9 +7,12 @@
 // Pin definitions and control variables
 #define FORWARD 1
 #define BACKWARD 0
+#define OFF 2
 
 #define steeringInput 9
 #define throttleInput 8
+#define ch3_input 12
+#define ch4_input 13
 
 #define motor1_enable 5
 #define motor1_pin1 2
@@ -18,18 +23,31 @@
 #define motor2_pin2 11
 
 #define LED_PIN 13
+#define SERV1_PIN 4
+#define SERV2_PIN 7
+
+#define servo1Home 170
+#define servo2Home 0
+#define servo1Max 50
+#define servo2Max 130
+
+Servo servo1;
+Servo servo2;
 
 // Set this to 'true' in order to enable Serial debugging.
-bool debug = true;
+bool debug = false;
 // disable outputting to motors (for Serial only debugging)
 bool motorsOff = false;
 // This will also introduce a 500ms delay between loops so as not to flood the console.
 bool delayDebug = false;
 
+bool servoUp = false;
 
 // working variable declarations
 unsigned long steerRaw;
 unsigned long throttleRaw;
+unsigned long ch3Raw;
+unsigned long ch4Raw;
 
 int throttleIn = 0;
 int steerIn = 0;
@@ -39,7 +57,7 @@ int motor2_output = 0;
 int motor1_dir = 0;
 int motor2_dir = 0;
 
-int input_buffer = 20;
+int input_buffer = 35;
 int steerMin = 1350;
 int steerMax = 2600;
 int throttleMin = 1300;
@@ -52,6 +70,8 @@ void setup()
 
   pinMode(steeringInput, INPUT);
   pinMode(throttleInput, INPUT);
+  pinMode(ch3_input, INPUT);
+  pinMode(ch4_input, INPUT);
 
   pinMode(motor1_enable, OUTPUT);
   pinMode(motor1_pin1, OUTPUT);
@@ -62,9 +82,15 @@ void setup()
 
   pinMode(LED_PIN, OUTPUT); // built in status LED
 
+  servo1.attach(SERV1_PIN);
+  servo2.attach(SERV2_PIN);
+
+  servo1.write(servo1Home);
+  servo2.write(servo2Home);
+
   if(debug) {
     Serial.begin(9600);
-    Serial.println("Arduino_RC");
+    Serial.println("Matthewinator");
   }
 
   // Let's read in the average values and calculate a good center point.
@@ -76,12 +102,9 @@ void setup()
   delay(2500);
 
   for(int i=0;i<20;i++) {
-    if(debug) {
-      Serial.print("ThrottleAvg: ");
-      Serial.println(throttleAvg);
-    }
-    throttleAvg += pulseIn(throttleInput, HIGH, 25000);
-    steerAvg += pulseIn(steeringInput, HIGH, 25000);
+    throttleAvg += pulseIn(throttleInput, HIGH);
+    delay(2);
+    steerAvg += pulseIn(steeringInput, HIGH);
     delay(2);
   }
 
@@ -90,7 +113,6 @@ void setup()
     Serial.println(throttleAvg);
     Serial.print("steerAvg (total): ");
     Serial.println(steerAvg);
-
   }
 
   throttleAvg = (throttleAvg/20);
@@ -139,11 +161,9 @@ void setup()
     }
   }
 
-
   // turn off the LED
   digitalWrite(LED_PIN, LOW);
   delay(500);
-
 
   // do a happy dance
   for(int i=0;i<5;i++) {
@@ -158,8 +178,32 @@ void setup()
 
 void getInputs() {
   steerRaw = pulseIn(steeringInput, HIGH);
+  delay(1);
   throttleRaw = pulseIn(throttleInput, HIGH);
   
+  ch3Raw = pulseIn(ch3_input, HIGH);
+
+  if(debug) {
+    Serial.print("steerRaw: ");
+    Serial.println(steerRaw);
+    Serial.print("throttleRaw: ");
+    Serial.println(throttleRaw);
+    Serial.print("ch3Raw: ");
+    Serial.println(ch3Raw);
+  }
+
+  if(ch3Raw > 1000) {
+    servo1.write(servo1Max);
+    servo2.write(servo2Max);
+    servoUp = true;
+  } else {
+    if(servoUp) {
+      servo1.write(servo1Home);
+      servo2.write(servo2Home);
+    }
+  }
+
+
   if(steerRaw == 0 || throttleRaw == 0) {
     steerIn = 0;
     throttleIn = 0;
@@ -170,22 +214,30 @@ void getInputs() {
   }
 } // end getInputs
 
+
 void setDirection(int motor1_direction, int motor2_direction) {
   
   if(motor1_direction == FORWARD) {
     digitalWrite(motor1_pin1, HIGH);
     digitalWrite(motor1_pin2, LOW);      
-  } else {
+  } else if(motor1_direction == BACKWARD) {
     digitalWrite(motor1_pin1, LOW);
     digitalWrite(motor1_pin2, HIGH); 
+  } else {
+    // set everything off
+    digitalWrite(motor1_pin1, LOW);
+    digitalWrite(motor1_pin2, LOW);
   }
-
 
   if(motor2_direction == FORWARD) {
     digitalWrite(motor2_pin1, LOW);
     digitalWrite(motor2_pin2, HIGH);
-  } else {
+  } else if(motor2_direction == BACKWARD) {
     digitalWrite(motor2_pin1, HIGH);
+    digitalWrite(motor2_pin2, LOW);
+  } else {
+    // set everything off
+    digitalWrite(motor2_pin1, LOW);
     digitalWrite(motor2_pin2, LOW);
   }
 } // end setDirection
@@ -193,8 +245,38 @@ void setDirection(int motor1_direction, int motor2_direction) {
 void loop() {
   getInputs();
 
-  // Bias to going forward direction, this way spin-in-place works like you expect
-  if(throttleIn >= -input_buffer) {
+  if(abs(throttleIn) <= input_buffer) {
+    // stationary
+      if(steerIn >= input_buffer) {
+        // turn right
+        if(debug) {
+          Serial.println("stationary right");
+        }
+        motor1_output = steerIn;
+        motor2_output = -steerIn;
+
+      } else if(steerIn <= -input_buffer) {
+        // turn left
+        if(debug) {
+          Serial.println("stationary left");
+        }
+        motor1_output = steerIn;
+        motor2_output = -steerIn;
+
+      } else {
+        if(debug) {
+          // don't move
+          //Serial.println("freeze!");
+        }
+        motor1_output = 0;
+        motor2_output = 0;
+
+      }
+
+  } else if(throttleIn >= -input_buffer) {
+    if(debug) {
+      Serial.println("Forward it goes");
+    }
     motor1_output = throttleIn;
     motor2_output = throttleIn;
     
@@ -206,7 +288,7 @@ void loop() {
         // Steering is positive, so turn right
         Serial.println("Fwd + Right");
       } else if(steerIn <= -input_buffer) {
-        // steerign is negative, so turn left
+        // steering is negative, so turn left
         Serial.println("Fwd + Left");
       } else {
         // this is our default state
@@ -224,6 +306,9 @@ void loop() {
 
   } else {
     // We allow negative values because we'll set direction and use abs to fix it before PWM'ing later.
+    if(debug) {
+      Serial.print("backwards it is.");
+    }
     motor1_output = throttleIn;
     motor2_output = throttleIn;
     
@@ -248,20 +333,23 @@ void loop() {
 
   }
 
-
   // Use the output values to determine direction.
   if(motor1_output < 0) {
     motor1_dir = BACKWARD;
   }
-  else {
+  else if(motor1_output > 0) {
     motor1_dir = FORWARD;
+  } else {
+    motor1_dir = OFF;
   }
   
   if(motor2_output < 0) {
     motor2_dir = BACKWARD;
   }
-  else {
+  else if(motor2_output >0) {
     motor2_dir = FORWARD;
+  } else {
+    motor2_dir = OFF;
   }
 
   setDirection(motor1_dir, motor2_dir);
@@ -271,7 +359,5 @@ void loop() {
     analogWrite(motor1_enable, abs(constrain(motor1_output, -255, 255)));
     analogWrite(motor2_enable, abs(constrain(motor2_output, -255, 255)));
   }
-  if(delayDebug) {
-    delay(500);
-  }
+  delay(10);
 }
